@@ -1,42 +1,26 @@
-from operator import truediv
 from typing import Optional, Any, Sequence
 from typing import Annotated
 from datetime import date
 
 from fastapi import Depends, FastAPI, HTTPException, Query
-from pydantic import BaseModel
 from sqlmodel import Field, Session, SQLModel, select
 
-# from src.app.additional.imdb_connect import *
-from additional.imdb_connect import *
+from src.app.additional.imdb_connect import *
+from src.app.db import *
+# from additional.imdb_connect import *
+# from db import *
 
-from sqlalchemy import create_engine, update
-from dotenv import load_dotenv
-import os
+from sqlalchemy import update
 from enum import Enum
 from sqlalchemy.sql import func
 
 
-class RecomendationReasonEnum(Enum):
-    Other = 'Other'
-    RecentlyAdded = 'Recently Added or Timely'
-    Friends = 'Friends recommendation'
-    HighRating = 'High Rating or Popular'
-    SameDirector = 'Same Director, Actor, or Franchise'
-
-
-class MovieSchema(BaseModel):
-    imdb_id: str
-    name: str
-    description: Optional[str]
-    poster_url: Optional[str]
-    start_year: int
-
-
-class UserSchema(BaseModel):
-    user_id: int
-    username: str
-    password: str
+# class RecomendationReasonEnum(Enum):
+#     Other = 'Other'
+#     RecentlyAdded = 'Recently Added or Timely'
+#     Friends = 'Friends recommendation'
+#     HighRating = 'High Rating or Popular'
+#     SameDirector = 'Same Director, Actor, or Franchise'
 
 
 class Movie(SQLModel, table=True):
@@ -89,27 +73,6 @@ class WatchLater(SQLModel, table=True):
         self.score = score
 
 
-# class Watched(SQLModel, table=True):
-#     __tablename__ = "watched"
-#     id: int = Field(index=True, primary_key=True)
-#     user_id: int
-#     movie_id: str
-#     watched_at: date
-#     score: Optional[int] = None
-#
-#
-#     def __init__(self, imdb_id, user_id, score, **data: Any):
-#         super().__init__(**data)
-#         self.user_id = user_id
-#         self.movie_id = imdb_id
-#         self.score = score
-#         self.watched_at = date.today()
-
-
-# def calculate_average_score(movie_id: str, session: SessionDep):
-#     session.query(func.avg(Rating.field2).label('average')).filter(Rating.url == url_string.netloc)
-
-
 def create_rand_movie() -> Movie:
     movie_info = get_rand_movie_info()
     return Movie(movie_info["imdb_id"], movie_info["name"], movie_info["description"],
@@ -120,31 +83,6 @@ def wrap_movie_info(movie_id: str) -> Movie:
     movie_info = get_movie_info(movie_id)
     return Movie(movie_info["imdb_id"], movie_info["name"], movie_info["description"],
                  movie_info["poster_url"], movie_info["start_year"])
-
-
-load_dotenv()
-
-USER = os.getenv("user")
-PASSWORD = os.getenv("password")
-HOST = os.getenv("host")
-PORT = os.getenv("port")
-DBNAME = os.getenv("dbname")
-
-DATABASE_URL = f"postgresql+psycopg2://{USER}:{PASSWORD}@{HOST}:{PORT}/{DBNAME}?sslmode=require"
-
-engine = create_engine(DATABASE_URL)
-
-
-try:
-    with engine.connect() as connection:
-        print("Connection successful!")
-except Exception as e:
-    print(f"Failed to connect: {e}")
-
-
-def get_session():
-    with Session(engine) as session:
-        yield session
 
 
 SessionDep = Annotated[Session, Depends(get_session)]
@@ -178,22 +116,24 @@ def create_movie(movie: Movie, session: SessionDep) -> Movie:
         return movie
 
 
-@app.post("/movies/{movie_id}")
-def create_movie_from_id(movie_id: str, session: SessionDep) -> Movie:
-    movie = wrap_movie_info(movie_id)
-    session.add(movie)
-    session.commit()
-    session.refresh(movie)
-    return movie
+@app.post("/movie/")
+def create_movie(movie_id: str, session: SessionDep) -> Movie:
+    if session.get(Movie, movie_id):
+        raise HTTPException(status_code=406, detail="This movie already exists")
+    else:
+        movie = wrap_movie_info(movie_id)
+        session.add(movie)
+        session.commit()
+        session.refresh(movie)
+        return movie
 
 
 @app.get("/movies/")
-def read_movies(
-    session: SessionDep,
-    offset: int = 0,
-    limit: Annotated[int, Query(le=50)] = 50,
-) -> Sequence[Movie]:
-    movies = session.exec(select(Movie).offset(offset).limit(limit)).all()
+def read_movies(session: SessionDep, year: Optional[int] = None, limit: int = 10) -> Sequence[Movie]:
+    if year:
+        movies = session.exec(select(Movie).where(Movie.start_year == year).limit(limit)).all()
+    else:
+        movies = session.exec(select(Movie).limit(limit)).all()
     return movies
 
 
@@ -214,8 +154,8 @@ def read_movie(movie_id: str, session: SessionDep) -> Movie:
     return movie
 
 
-@app.delete("/movies/{movie_id}")
-def delete_movie(movie_id: str, session: SessionDep):
+@app.delete("/movies/")
+def delete_movie(session: SessionDep, movie_id: str):
     movie = session.get(Movie, movie_id)
     if not movie:
         raise HTTPException(status_code=404, detail="Movie not found")
@@ -224,18 +164,18 @@ def delete_movie(movie_id: str, session: SessionDep):
     return {"msg": "Deleted"}
 
 
-# @app.get("/login/{username}/{password}")
-# def login(username: str, password: str, session: SessionDep):
-#     statement = select(User).where(User.username == username)
-#     user = session.exec(statement).all()
-#     if not user:
-#         raise HTTPException(status_code=404, detail="User not found")
-#     if user.password != password:
-#         raise HTTPException(status_code=401, detail="Wrong password")
-#     return {"ok": True}
+@app.get("/login/")
+def login(username: str, password: str, session: SessionDep):
+    statement = select(User).where(User.username == username)
+    user = session.exec(statement).all()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user[0].password != password:
+        raise HTTPException(status_code=401, detail="Wrong password")
+    return {"msg": "Logged in"}
 
 
-@app.get("/users/{user_id}")
+@app.get("/users/")
 def read_user_info(user_id: int, session: SessionDep):
     user = session.get(User, user_id)
     if not user:
@@ -243,7 +183,16 @@ def read_user_info(user_id: int, session: SessionDep):
     return user
 
 
-
+@app.put("/users/")
+def update_user_info(user: User, session: SessionDep) -> User:
+    old_user = session.get(User, user.user_id)
+    if old_user:
+        user_data = user.model_dump(exclude_unset=True)
+        old_user.sqlmodel_update(user_data)
+        session.commit()
+        return old_user
+    else:
+        raise HTTPException(status_code=404, detail="User not found")
 
 
 @app.post("/register/")
@@ -287,9 +236,7 @@ def update_watch_later_record(new_watch_later: WatchLater, session: SessionDep):
     if not old_watch_later:
         raise HTTPException(status_code=404, detail="Record not found")
     if new_watch_later.watched_at is not None:
-        print("Here 2")
         if new_watch_later.watched_at > date.today():
-            print("Here 3")
             raise HTTPException(status_code=422, detail="The watch date should be before or equal today")
     else:
         new_watch_later.watched_at = date.today()
@@ -324,7 +271,6 @@ def read_users_watch_later(user_id: int, session: SessionDep) -> list[WatchLater
     if user is not None:
         statement = (select(WatchLater).where(WatchLater.watched_at == None, WatchLater.user_id == user_id))
         watch_later = session.exec(statement).all()
-        # watch_later = session.query(WatchLater).filter(WatchLater.watched_at == None, WatchLater.user_id = user_id)
         if len(watch_later) == 0:
             raise HTTPException(status_code=404, detail="Empty watch later list")
         return watch_later

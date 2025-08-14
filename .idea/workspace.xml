@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="3f4a2088-67d1-458e-aab3-27c6ff33d21b" name="Changes" comment="+ simple tests for movie endpoints">
+      <change afterPath="$PROJECT_DIR$/.idea/Letterboxd.iml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/app/db.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/app/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/app/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/tests/test_main.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/tests/test_main.py" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Script" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="master" />
+      </map>
+    </option>
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;IrSokolova&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/IrSokolova/Letterboxd.git&quot;,
+    &quot;accountId&quot;: &quot;a7d3d2e8-ab83-4f94-b1bb-de73380c0e9b&quot;
+  }
+}</component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 1
+}</component>
+  <component name="ProjectId" id="2zdOZGDzOPR9EespifAYUMr1oBY" />
+  <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Python tests.Python tests for main.test_add_movie.executor&quot;: &quot;Run&quot;,
+    &quot;Python.db.executor&quot;: &quot;Run&quot;,
+    &quot;Python.imdb_connect.executor&quot;: &quot;Run&quot;,
+    &quot;Python.main.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;dev__branch&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;
+  }
+}</component>
+  <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\irina\PycharmProjects\Letterboxd" />
+      <recent name="C:\Users\irina\PycharmProjects\Letterboxd\src" />
+      <recent name="C:\Users\irina\PycharmProjects\Letterboxd\src\app\additional" />
+      <recent name="C:\Users\irina\PycharmProjects\Letterboxd\src\app" />
+    </key>
+  </component>
+  <component name="RunManager">
+    <configuration name="Python tests for src.tests.test_main.test_add_movie" type="tests" factoryName="Autodetect" temporary="true" nameIsGenerated="true">
+      <module name="Letterboxd" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src/tests" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="_new_additionalArguments" value="&quot;&quot;" />
+      <option name="_new_target" value="&quot;src.tests.test_main.test_add_movie&quot;" />
+      <option name="_new_targetType" value="&quot;PYTHON&quot;" />
+      <method v="2" />
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Python tests.Python tests for src.tests.test_main.test_add_movie" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-python-sdk-98f27166c754-ba05f1cad1b1-com.jetbrains.pycharm.community.sharedIndexes.bundled-PC-242.21829.153" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="3f4a2088-67d1-458e-aab3-27c6ff33d21b" name="Changes" comment="" />
+      <created>1752057536308</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1752057536308</updated>
+    </task>
+    <task id="LOCAL-00001" summary="Initial commit">
+      <option name="closed" value="true" />
+      <created>1755080429335</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1755080429335</updated>
+    </task>
+    <task id="LOCAL-00002" summary="+ SQLModel classes&#10;+ DB connection&#10;+ create movie&#10;+ read movie&#10;+ delete movie&#10;+ create user&#10;+ read user info&#10;+ create watched movie&#10;+ update watched movie&#10;+ create movie to watch later&#10;+ read user's watched movies&#10;+ read user's watchlist">
+      <option name="closed" value="true" />
+      <created>1755080796762</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1755080796762</updated>
+    </task>
+    <task id="LOCAL-00003" summary="+ simple tests for movie endpoints">
+      <option name="closed" value="true" />
+      <created>1755080842190</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1755080842190</updated>
+    </task>
+    <option name="localTasksCounter" value="4" />
+    <servers />
+  </component>
+  <component name="UnknownFeatures">
+    <option featureType="com.intellij.fileTypeFactory" implementationName=".env" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="Initial commit" />
+    <MESSAGE value="+ SQLModel classes&#10;+ DB connection&#10;+ create movie&#10;+ read movie&#10;+ delete movie&#10;+ create user&#10;+ read user info&#10;+ create watched movie&#10;+ update watched movie&#10;+ create movie to watch later&#10;+ read user's watched movies&#10;+ read user's watchlist" />
+    <MESSAGE value="+ simple tests for movie endpoints" />
+    <option name="LAST_COMMIT_MESSAGE" value="+ simple tests for movie endpoints" />
+  </component>
+</project>
