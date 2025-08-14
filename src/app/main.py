@@ -1,16 +1,19 @@
-from typing import Optional, Any, Sequence
+import re
+from typing import Optional, Any, Sequence, Literal
 from typing import Annotated
 from datetime import date
 
-from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, status, Query, Path
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Field, Session, SQLModel, select
+from starlette.responses import Response
 
 from src.app.additional.imdb_connect import *
 from src.app.db import *
 # from additional.imdb_connect import *
 # from db import *
 
-from sqlalchemy import update
+from sqlalchemy import update, UniqueConstraint
 from enum import Enum
 from sqlalchemy.sql import func
 
@@ -29,8 +32,8 @@ class Movie(SQLModel, table=True):
     name: str = Field(index=True)
     description: Optional[str]
     poster_url: Optional[str]
-    start_year: int
-    average_score: Optional[float]
+    start_year: int = Field(index=True)
+    average_score: Optional[float] = Field(index=True)
 
     def __init__(self, imdb_id, name, description, poster_url, start_year, **data: Any):
         super().__init__(**data)
@@ -45,7 +48,7 @@ class Movie(SQLModel, table=True):
 class User(SQLModel, table=True):
     __tablename__ = "users"
     user_id: int = Field(index=True, primary_key=True)
-    username: str = Field(index=True)
+    username: str = Field(index=True, unique=True, nullable=False)
     password: str
 
 
@@ -56,7 +59,7 @@ class User(SQLModel, table=True):
 
 
 class WatchLater(SQLModel, table=True):
-    __tablename__ = "watch_later"
+    __table_args__ = (UniqueConstraint("user_id", "movie_id", name="watch_later"),)
     id: int = Field(index=True, primary_key=True)
     user_id: int = Field(index=True)
     movie_id: str
@@ -81,8 +84,10 @@ def create_rand_movie() -> Movie:
 
 def wrap_movie_info(movie_id: str) -> Movie:
     movie_info = get_movie_info(movie_id)
-    return Movie(movie_info["imdb_id"], movie_info["name"], movie_info["description"],
+    if movie_info:
+        return Movie(movie_info["imdb_id"], movie_info["name"], movie_info["description"],
                  movie_info["poster_url"], movie_info["start_year"])
+    return movie_info
 
 
 SessionDep = Annotated[Session, Depends(get_session)]
@@ -105,36 +110,63 @@ def calculate_average_score(movie_id: str, session: SessionDep):
 app = FastAPI()
 
 
-@app.post("/movies/")
+@app.post("/movies/",response_model=Movie, status_code=status.HTTP_201_CREATED)
 def create_movie(movie: Movie, session: SessionDep) -> Movie:
-    if session.get(Movie, movie.imdb_id):
-        raise HTTPException(status_code=406, detail="This movie already exists")
-    else:
-        session.add(movie)
+    if not re.fullmatch(r"tt\d{7,8}", movie.imdb_id):
+        raise HTTPException(status_code=422, detail="Invalid imdb_id format")
+    session.add(movie)
+    try:
         session.commit()
-        session.refresh(movie)
-        return movie
+    except IntegrityError:
+        session.rollback()
+        raise HTTPException(status_code=409, detail="Movie with this imdb_id already exists")
+
+    session.refresh(movie)
+    return movie
 
 
-@app.post("/movie/")
+@app.post("/movie/",response_model=Movie, status_code=status.HTTP_201_CREATED)
 def create_movie(movie_id: str, session: SessionDep) -> Movie:
-    if session.get(Movie, movie_id):
-        raise HTTPException(status_code=406, detail="This movie already exists")
-    else:
-        movie = wrap_movie_info(movie_id)
-        session.add(movie)
+    if not re.fullmatch(r"tt\d{7,8}", movie_id):
+        raise HTTPException(status_code=422, detail="Invalid imdb_id format")
+
+    movie = wrap_movie_info(movie_id)
+    if movie is None:
+        raise HTTPException(status_code=404,
+                            detail="Movie not found in source")
+
+    session.add(movie)
+    try:
         session.commit()
-        session.refresh(movie)
-        return movie
+    except IntegrityError:
+        session.rollback()
+        raise HTTPException(status_code=409, detail="Movie with this imdb_id already exists")
+
+    session.refresh(movie)
+    return movie
 
 
 @app.get("/movies/")
-def read_movies(session: SessionDep, year: Optional[int] = None, limit: int = 10) -> Sequence[Movie]:
-    if year:
-        movies = session.exec(select(Movie).where(Movie.start_year == year).limit(limit)).all()
+def read_movies(
+    session: SessionDep,
+    year: Optional[int] = Query(default=None, ge=1870, le=2100),
+    limit: int = Query(default=10, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    order: Literal["asc", "desc"] = "desc",
+) -> Sequence[Movie]:
+    statement = select(Movie)
+
+    if year is not None:
+        statement = statement.where(Movie.start_year == year)
+        statement = statement.order_by(Movie.imdb_id if order == "asc" else Movie.imdb_id.desc())
     else:
-        movies = session.exec(select(Movie).limit(limit)).all()
-    return movies
+        if order == "asc":
+            statement = statement.order_by(Movie.start_year.asc(), Movie.imdb_id.asc())
+        else:
+            statement = statement.order_by(Movie.start_year.desc(), Movie.imdb_id.desc())
+
+    statement = statement.offset(offset).limit(limit)
+    return session.exec(statement).all()
 
 
 @app.get("/movies/{movie_id}")
@@ -142,8 +174,8 @@ def read_movie(movie_id: str, session: SessionDep) -> Movie:
     """
     Get a movie with all the information:
 
-    - **imdb_id**: each item must have a imdb id
-    - **name**: each item must have a name
+    - **imdb_id**: each movie must have an imdb id
+    - **name**: each movie must have a name
     - **description**: plot description
     - **poster_url**: optional poster url
     - **start_year**: required
@@ -154,14 +186,14 @@ def read_movie(movie_id: str, session: SessionDep) -> Movie:
     return movie
 
 
-@app.delete("/movies/")
-def delete_movie(session: SessionDep, movie_id: str):
+@app.delete("/movies/", status_code=status.HTTP_204_NO_CONTENT)
+def delete_movie(session: SessionDep, movie_id: str) -> Response:
     movie = session.get(Movie, movie_id)
     if not movie:
         raise HTTPException(status_code=404, detail="Movie not found")
     session.delete(movie)
     session.commit()
-    return {"msg": "Deleted"}
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @app.get("/login/")
@@ -176,119 +208,181 @@ def login(username: str, password: str, session: SessionDep):
 
 
 @app.get("/users/")
-def read_user_info(user_id: int, session: SessionDep):
+def read_user_info(
+    user_id: Annotated[int, Query(ge=1)],
+    session: SessionDep,
+):
     user = session.get(User, user_id)
-    if not user:
+    if user is None:
         raise HTTPException(status_code=404, detail="User not found")
     return user
 
 
 @app.put("/users/")
-def update_user_info(user: User, session: SessionDep) -> User:
+def update_user_info(user: User, session: SessionDep):
     old_user = session.get(User, user.user_id)
-    if old_user:
-        user_data = user.model_dump(exclude_unset=True)
-        old_user.sqlmodel_update(user_data)
-        session.commit()
-        return old_user
-    else:
+    if not old_user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    data = user.model_dump(exclude_unset=True, exclude={"user_id"})
 
-@app.post("/register/")
+    for k, v in data.items():
+        setattr(old_user, k, v)
+
+    try:
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Username already exists"
+        )
+
+    session.refresh(old_user)
+    return {"msg": "Record updated"}
+
+
+@app.post("/register/", status_code=status.HTTP_201_CREATED)
 def create_user(user: User, session: SessionDep) -> User:
-    if not user_exist(user.username, session):
+    try:
         session.add(user)
         session.commit()
         session.refresh(user)
-        return user
-    else:
-        raise HTTPException(status_code=401, detail="This username is occupied")
+    except IntegrityError:
+        session.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                            detail="Username already taken")
+
+    return user
 
 
-@app.post("/watched/")
+@app.post("/watched/", status_code=status.HTTP_201_CREATED)
 def create_watched_record(watch_later: WatchLater, session: SessionDep) -> WatchLater:
-    statement = select(WatchLater).where(WatchLater.user_id == watch_later.user_id,
-                                         WatchLater.movie_id == watch_later.movie_id)
-    old_watch_later = session.exec(statement).first()
-    if old_watch_later is not None:
-        update_watch_later_record(watch_later, session)
-    else:
-        if watch_later.score is not None:
-            if watch_later.score < 1 or watch_later.score > 10:
-                raise HTTPException(status_code=422, detail="The score should be between 1 and 10")
-        if watch_later.watched_at is not None:
-            if watch_later.watched_at > date.today():
-                raise HTTPException(status_code=422, detail="The watch date should be before or equal today")
+    user = session.get(User, watch_later.user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    movie = session.get(Movie, watch_later.movie_id)
+    if not movie:
+        raise HTTPException(status_code=404, detail="Movie not found")
+
+    if watch_later.score is not None and not (1 <= watch_later.score <= 10):
+        raise HTTPException(status_code=422, detail="The score should be between 1 and 10")
+    if watch_later.watched_at is not None and watch_later.watched_at > date.today().isoformat():
+        raise HTTPException(status_code=422, detail="The watch date should be before or equal today")
+
+    try:
         session.add(watch_later)
         session.commit()
         session.refresh(watch_later)
         if watch_later.score is not None:
             calculate_average_score(watch_later.movie_id, session)
-    return watch_later
+        return watch_later
+    except IntegrityError:
+        session.rollback()
+        updated = update_watch_later_record(watch_later, session)  # should return the DB entity
+        if watch_later.score is not None:
+            calculate_average_score(watch_later.movie_id, session)
+        return updated
 
 
 @app.put("/watched/")
 def update_watch_later_record(new_watch_later: WatchLater, session: SessionDep):
-    statement = select(WatchLater).where(WatchLater.user_id == new_watch_later.user_id,
-                                         WatchLater.movie_id == new_watch_later.movie_id)
-    old_watch_later = session.exec(statement).first()
-    if not old_watch_later:
+    statement = select(WatchLater).where(
+        WatchLater.user_id == new_watch_later.user_id,
+        WatchLater.movie_id == new_watch_later.movie_id,
+    )
+    old = session.exec(statement).one_or_none()
+    if old is None:
         raise HTTPException(status_code=404, detail="Record not found")
-    if new_watch_later.watched_at is not None:
-        if new_watch_later.watched_at > date.today():
-            raise HTTPException(status_code=422, detail="The watch date should be before or equal today")
-    else:
-        new_watch_later.watched_at = date.today()
-    if new_watch_later.score is not None:
-        if new_watch_later.score < 1 or new_watch_later.score > 10:
+
+    data = new_watch_later.model_dump(exclude_unset=True, exclude={"user_id", "movie_id"})
+
+
+
+    if "watched_at" in data:
+        if data["watched_at"] is not None:
+            if data["watched_at"] > date.today():
+                raise HTTPException(status_code=422, detail="The watch date should be before or equal today")
+        else:
+            data["watched_at"] = date.today()
+
+    if "score" in data:
+        if data["score"] is not None and not (1 <= data["score"] <= 10):
             raise HTTPException(status_code=422, detail="The score should be between 1 and 10")
-    watch_later_data = new_watch_later.model_dump(exclude_unset=True)
-    old_watch_later.sqlmodel_update(watch_later_data)
+
+    for k, v in data.items():
+        setattr(old, k, v)
+
+    # Recompute average only if score actually changed
+    score_changed = "score" in data and data["score"] != old.score
+
+    session.flush()  # persist changes so calculations see them
+    if score_changed:
+        calculate_average_score(old.movie_id, session)
+
     session.commit()
-    calculate_average_score(new_watch_later.movie_id, session)
-    return old_watch_later
+    session.refresh(old)
+    return old
 
 
-@app.post("/watchlater/")
+@app.post("/watchlater/", status_code=status.HTTP_201_CREATED)
 def create_watch_later_record(watch_later: WatchLater, session: SessionDep) -> WatchLater:
-    statement = select(WatchLater).where(WatchLater.user_id == watch_later.user_id,
-                                         WatchLater.movie_id == watch_later.movie_id)
-    old_watch_later = session.exec(statement).first()
-    if old_watch_later is not None:
-        update_watch_later_record(watch_later, session)
-        return watch_later
-    else:
+    user = session.get(User, watch_later.user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    movie = session.get(Movie, watch_later.movie_id)
+    if not movie:
+        raise HTTPException(status_code=404, detail="Movie not found")
+    try:
         session.add(watch_later)
         session.commit()
         session.refresh(watch_later)
         return watch_later
-
+    except IntegrityError:
+        session.rollback()
+        updated = update_watch_later_record(watch_later, session)
+        return updated
 
 @app.get("/watchlater/{user_id}")
-def read_users_watch_later(user_id: int, session: SessionDep) -> list[WatchLater]:
+def read_users_watch_later(
+    user_id: Annotated[int, Path(ge=1)],
+    session: SessionDep,
+) -> list[WatchLater]:
     user = session.get(User, user_id)
-    if user is not None:
-        statement = (select(WatchLater).where(WatchLater.watched_at == None, WatchLater.user_id == user_id))
-        watch_later = session.exec(statement).all()
-        if len(watch_later) == 0:
-            raise HTTPException(status_code=404, detail="Empty watch later list")
-        return watch_later
-    else:
+    if user is None:
         raise HTTPException(status_code=404, detail="User not found")
+
+    statement = (
+        select(WatchLater)
+        .where(
+            WatchLater.user_id == user_id,
+            WatchLater.watched_at.is_(None)
+        )
+        .order_by(WatchLater.movie_id)
+    )
+    items = session.exec(statement).all()
+
+    return items
 
 
 @app.get("/watched/{user_id}")
-def read_users_watched(user_id: int, session: SessionDep) -> list[WatchLater]:
+def read_users_watched(
+    user_id: Annotated[int, Path(ge=1)],
+    session: SessionDep,
+) -> list[WatchLater]:
     user = session.get(User, user_id)
-    if user is not None:
-        statement = (select(WatchLater).where(WatchLater.watched_at is not None, WatchLater.user_id == user_id))
-        watch_later = session.exec(statement).all()
-        if len(watch_later) == 0:
-            raise HTTPException(status_code=404, detail="Empty watch later list")
-        return watch_later
-    else:
+    if user is None:
         raise HTTPException(status_code=404, detail="User not found")
+
+    statement = (
+        select(WatchLater)
+        .where(
+            WatchLater.user_id == user_id,
+            WatchLater.watched_at.is_not(None)
+        )
+        .order_by(WatchLater.watched_at.desc(), WatchLater.movie_id)
+    )
+    return session.exec(statement).all()
 
 
 @app.get("/")

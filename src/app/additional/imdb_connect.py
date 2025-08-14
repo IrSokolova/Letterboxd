@@ -30,6 +30,8 @@ def get_movie_info(imdb_id: str):
     conn = http.client.HTTPSConnection("api.imdbapi.dev")
     conn.request("GET", "/titles/" + imdb_id)
     res = conn.getresponse()
+    if res.status == 404:
+        return None
     data = res.read()
     data_dict = json.loads(data.decode("utf-8"))
 
